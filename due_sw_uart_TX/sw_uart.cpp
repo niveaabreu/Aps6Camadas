@@ -13,39 +13,42 @@ void sw_uart_setup(due_sw_uart *uart, int tx, int stopbits, int databits, int pa
   
 }
 
-int calc_even_parity(char data) {
-  int ones = 0;
 
+//Atribui ao pointer de bit o valor de paridade do char enviado
+void calc_even_parity(int *bit,char data) {
+  int ones = 0;
   for(int i = 0; i < 8; i++) {
     ones += (data >> i) & 0x01;
   }
-
-  return ones % 2;
+  *bit = ones % 2;
 }
 
-
-//Atribui ao pointer de bit o valor de paridade do char enviado
-void get_parity(int *bit, char data){
-  *bit = calc_even_parity(data);
-}
 
 void sw_uart_write_byte(due_sw_uart *uart, char data){
-  //Atribui a paridade
+  //Atribui a paridade ao bit do caractere enviado
   int bit;
-  get_parity(&bit, data);
+  calc_even_parity(&bit, data);
 
-  //Escreve no pino desejado em LOW
+  //mantém estado não receptivo
+  digitalWrite(uart->pin_tx, HIGH);
+  //envia bit de start para começo da leitura
   digitalWrite(uart->pin_tx, LOW);
   _sw_uart_wait_T(uart);
 
+  //Envia cada bit do caractere em ASCII na ordem "little" para leitura em "big"
   for (int i=0; i<8; i++){
+    //Enviamos cada bit dos 8 possíveis, usando shift para "deslizar entre eles", assegurando
+    //que seja um e apenas um, enviado de cada vez
+    //Serial.print((data >> i) & 0x01);
     digitalWrite(uart->pin_tx,(data >> i) & 0x01);
     _sw_uart_wait_T(uart);  
   }
-
+  Serial.println();
+  //envia o bit de paridade para o pino RX
   digitalWrite(uart->pin_tx,bit);
   _sw_uart_wait_T(uart);
 
+  //envia o bit de parada
   digitalWrite(uart->pin_tx, HIGH);
   _sw_uart_wait_T(uart);
 }
