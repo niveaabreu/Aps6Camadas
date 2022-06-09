@@ -23,55 +23,64 @@ int calc_even_parity(char data) {
 }
 
 int sw_uart_receive_byte(due_sw_uart *uart, char* data) {
-  // wait start bit
+  // Fica em while true até receber o start bit
   while(digitalRead(uart->pin_rx) == HIGH)
   {
     //Serial.println("esperando byte");
   }
 
-  //Serial.println("\nchegou byte");
+  //Quando recebe o start bit, da meio periodo de intervalo
   // confirm start bit
   _sw_uart_wait_half_T(uart);
   // HIGH = invalid
+	
+// Confere se não houve erro na chegada do bit
   if(digitalRead(uart->pin_rx) == HIGH) {
     return SW_UART_ERROR_FRAMING;
   }
 
+// Mais um intervalo de período T para recepção de dados
   _sw_uart_wait_T(uart);
   
-  // start getting data 
+  // Inicia recebimento de dados via mascaramento, e a cada bit recebido, da um intervalo T (_sw_uart_wait_T)
   char aux = 0x00;
   for(int i = 0; i < uart->databits; i++) {
+	  // Lê o bit
     aux |= digitalRead(uart->pin_rx) << i;
+	  //Intervalo T
     _sw_uart_wait_T(uart);
   }
   
-  // parity
+  // Lê o bit de paridade
   int rx_parity = 0;
   if(uart->paritybit != SW_UART_NO_PARITY) {
     rx_parity = digitalRead(uart->pin_rx);
+	  // Da um intervalo T após a leitura do bit de paridade
     _sw_uart_wait_T(uart);
   }
 
-  // get stop bit
+  // Recebe o stop bit
   for(int i = 0; i < uart->stopbits; i++) {
+	  // Confere se nao houve erro do stopbit
     if(digitalRead(uart->pin_rx) == LOW) {
       return SW_UART_ERROR_FRAMING;
     }
+	  / Da um intervalo T após o stop bit
     _sw_uart_wait_T(uart);
   }
   
   int parity = 0;
+	// Confere se a paridade está coerente com o byte recebido
   if(uart->paritybit == SW_UART_EVEN_PARITY) {
      parity = calc_even_parity(aux);
   } else if(uart->paritybit == SW_UART_ODD_PARITY) {
      parity = !calc_even_parity(aux);
   }
-
+// Erro de paridade
   if(parity != rx_parity) {
     return SW_UART_ERROR_PARITY;
   }
-  
+  // Mostra dados corretamente recebidos
   *data = aux;
   return SW_UART_SUCCESS;
 }
